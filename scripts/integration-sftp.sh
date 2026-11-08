@@ -116,9 +116,16 @@ if not done or failed then
 end
 
 if step == "diff" then
-  local qf = vim.fn.getqflist()
-  io.write("quickfix entries: " .. #qf .. "\n")
-  if #qf == 0 then
+  -- Skip the header lines (Local/Remote/Command): keep only the [A]/[M]/[D] entries.
+  local entries = {}
+  for _, item in ipairs(vim.fn.getqflist()) do
+    if item.text:match "^%[[AMD]%] " then
+      entries[#entries + 1] = item.text
+    end
+  end
+  table.sort(entries)
+  io.write("diff entries: " .. table.concat(entries, ", ") .. "\n")
+  if not vim.deep_equal(entries, { "[A] new.txt", "[M] a.txt" }) then
     vim.cmd "cquit 1"
   end
 end
@@ -134,8 +141,8 @@ ok "files uploaded, excluded file left out"
 step "2. diff after a local change"
 echo changed >>"$PROJECT/src/a.txt"
 echo new >"$PROJECT/src/new.txt"
-nvim_step diff "differences" || fail "diff failed or the quickfix list is empty"
-ok "diff filled the quickfix list"
+nvim_step diff "differences" || fail "diff failed or the quickfix entries are not [A] new.txt, [M] a.txt"
+ok "diff listed exactly the new and the modified file"
 
 step "3. syncdown"
 docker exec "$NAME" sh -c 'echo remote-only >/home/test/upload/site/remote.txt; chown test /home/test/upload/site/remote.txt'
