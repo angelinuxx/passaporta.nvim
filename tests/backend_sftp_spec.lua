@@ -95,7 +95,7 @@ describe("sftp.file", function()
       targs { direction = "up", local_path = "/p/a b.txt", remote_path = "/www/a b.txt", password = "s3cret" }
     )
     assert.are.same({ "lftp" }, job.cmd)
-    assert.truthy(job.stdin:find('put -O "/www" "/p/a b.txt"', 1, true))
+    assert.truthy(job.stdin:find('put "/p/a b.txt" -o "/www/a b.txt"', 1, true))
     assert.truthy(job.stdin:find('mkdir -pf "/www"', 1, true))
     assert.are.same({ "s3cret" }, job.secrets)
   end)
@@ -104,10 +104,17 @@ describe("sftp.file", function()
     local expected = vim.list_extend(vim.deepcopy(preamble), {
       [[open -u "web","pw" "sftp://h.example:2222"]],
       [[mkdir -pf "/www"]],
-      [[put -O "/www" "/p/a.txt"]],
+      [[put "/p/a.txt" -o "/www/a.txt"]],
       "bye",
     })
     assert.are.same(expected, script(job))
+  end)
+  it("uploads to the exact remote name, not the local basename", function()
+    local job =
+      sftp.file(remote, targs { local_path = "/p/.env.production", remote_path = "/public_html/.env", password = "pw" })
+    assert.truthy(
+      job.stdin:find('mkdir -pf "/public_html"\nput "/p/.env.production" -o "/public_html/.env"\n', 1, true)
+    )
   end)
   it("downloads to the exact local path with -o", function()
     local job = sftp.file(
@@ -289,5 +296,12 @@ describe("sftp.is_auth_failure", function()
     assert.is_true(sftp.is_auth_failure "authentication failed")
     assert.is_false(sftp.is_auth_failure "mirror: Access failed: No such file (/www/x)")
     assert.is_false(sftp.is_auth_failure "")
+  end)
+  it("matches permission denied only in ssh's authentication shapes", function()
+    assert.is_true(sftp.is_auth_failure "u@h: Permission denied (publickey,password).")
+    assert.is_true(sftp.is_auth_failure "Permission denied, please try again.")
+    assert.is_false(sftp.is_auth_failure "mirror: Access failed: Permission denied (/public_html/x)")
+    assert.is_false(sftp.is_auth_failure "put: Access failed: permission denied, please try again")
+    assert.is_false(sftp.is_auth_failure "rm: Permission denied")
   end)
 end)

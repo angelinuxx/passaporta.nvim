@@ -14,8 +14,8 @@ end
 ---@return string|nil
 function M.normalize_local(abs, root)
   local trailing = abs:sub(-1) == "/"
-  local bare = strip_trailing_slash(vim.fs.normalize(abs))
-  root = strip_trailing_slash(vim.fs.normalize(root))
+  local bare = strip_trailing_slash(vim.fs.normalize(abs, { expand_env = false }))
+  root = strip_trailing_slash(vim.fs.normalize(root, { expand_env = false }))
   if bare == root then
     return ""
   end

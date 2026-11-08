@@ -81,6 +81,25 @@ describe("deployment.normalize", function()
     )
   end)
 
+  it("rejects an empty remote", function()
+    assert.are.same(
+      { "a: mapping 1 has an empty remote" },
+      errors_of { mappings = { { ["local"] = ".", remote = "" } } }
+    )
+    assert.are.same(
+      { "a: mapping 2 has an empty remote" },
+      errors_of { mappings = { { ["local"] = "x", remote = "/a" }, { ["local"] = ".", remote = "" } } }
+    )
+  end)
+
+  it("collapses a remote made only of slashes to the root", function()
+    local remotes = deployment.normalize {
+      a = raw_remote("a", { mappings = { { remote = "//" }, { ["local"] = "x", remote = "///" } } }),
+    }
+    assert.are.same({ ["local"] = "", remote = "/" }, remotes[1].mappings[1])
+    assert.are.same({ ["local"] = "x", remote = "/" }, remotes[1].mappings[2])
+  end)
+
   it("rejects an unknown protocol", function()
     assert.are.same({ "a: protocol must be 'ssh' or 'sftp'" }, errors_of { protocol = "ftp" })
   end)

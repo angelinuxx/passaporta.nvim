@@ -35,12 +35,13 @@ local function remote_spec(remote, path)
 end
 
 ---User params without deletion flags: `--delete` is owned by the plugin (sync and diff only).
----Covers `--del`, every `--delete*`, `--remove-source-files` and its alias `--remove-sent-files`.
+---Covers `--del`, every `--delete*`, `--remove-source-files` and its alias `--remove-sent-files`
+---(`--delay-updates` is kept).
 ---@param params string[]
 ---@return string[]
 local function without_deletion(params)
   return vim.tbl_filter(function(p)
-    return not (vim.startswith(p, "--del") or vim.startswith(p, "--remove-s"))
+    return not (p == "--del" or vim.startswith(p, "--delete") or vim.startswith(p, "--remove-s"))
   end, params)
 end
 

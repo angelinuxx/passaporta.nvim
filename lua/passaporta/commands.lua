@@ -43,7 +43,7 @@ end
 ---@return string "" when there is no path and no file buffer
 local function absolute(path)
   if path and path ~= "" then
-    return vim.fn.fnamemodify(vim.fn.expand(path), ":p")
+    return vim.fn.fnamemodify(path, ":p")
   end
   return vim.fn.expand "%:p"
 end

@@ -17,7 +17,7 @@ local tools = {
 }
 
 ---@type table<string, string[]>
-local backend_tools = { ssh = { "rsync", "ssh" }, sftp = { "lftp" } }
+local backend_tools = { ssh = { "rsync", "ssh" }, sftp = { "lftp", "ssh" } }
 
 --- First `x.y[.z]` number found in a version banner.
 ---@param text string

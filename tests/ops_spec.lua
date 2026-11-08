@@ -17,6 +17,12 @@ return {
 }
 ]]
 
+local KEY_SFTP = [[
+return {
+  shared = { host = "s.example", protocol = "sftp", mappings = { { ["local"] = ".", remote = "/public_html" } } },
+}
+]]
+
 local ONE_SFTP = [[
 return {
   shared = {
@@ -167,7 +173,7 @@ describe("ops", function()
     write_config(ONE_SSH)
     ops.transfer("upload", dir .. "/a.txt", { remote = "nope" })
     assert.are.equal(0, #jobs)
-    assert.is_true(notified("nope does not cover this path", vim.log.levels.ERROR))
+    assert.is_true(notified("[nope] does not cover this path", vim.log.levels.ERROR))
   end)
 
   it("prompts for an sftp password once across two operations", function()
@@ -190,6 +196,24 @@ describe("ops", function()
     assert.is_true(notified("[shared] authentication failed, cached password dropped", vim.log.levels.ERROR))
     ops.transfer("upload", dir .. "/a.txt")
     assert.are.equal(2, prompts)
+  end)
+
+  it("reports a plain authentication failure when no password is configured", function()
+    write_config(KEY_SFTP)
+    result = { code = 1, stdout = {}, stderr = { "u@s: Permission denied (publickey)." }, timed_out = false }
+    ops.transfer("upload", dir .. "/a.txt")
+    assert.are.same({ "[shared] authentication failed" }, messages(vim.log.levels.ERROR))
+    assert.are.equal(0, prompts)
+  end)
+
+  it("emits deployment warnings with the remote prefix", function()
+    write_config [[
+return {
+  alpha = { host = "a.example", upload_on_save = true, mappings = { { ["local"] = ".", remote = "/srv/a" } } },
+}
+]]
+    ops.transfer("upload", dir .. "/a.txt")
+    assert.are.same({ "[alpha] upload_on_save is not supported and will be ignored" }, messages(vim.log.levels.WARN))
   end)
 
   it("aborts when no password is entered", function()
@@ -300,6 +324,20 @@ describe("ops", function()
     end
     ops.transfer("download", dir .. "/a.txt")
     assert.are.same({ "from remote" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    vim.cmd("bwipeout! " .. buf)
+  end)
+
+  it("does not reload a buffer whose file was removed by a syncdown", function()
+    write_config(ONE_SSH)
+    vim.cmd("edit " .. vim.fn.fnameescape(dir .. "/src/b.txt"))
+    local buf = vim.api.nvim_get_current_buf()
+    runner.run = function(job, _, on_done)
+      jobs[#jobs + 1] = job
+      os.remove(dir .. "/src/b.txt")
+      on_done { code = 0, stdout = { "*deleting   b.txt" }, stderr = {}, timed_out = false }
+    end
+    ops.transfer("syncdown", dir .. "/src")
+    assert.are.same({ "x" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
     vim.cmd("bwipeout! " .. buf)
   end)
 

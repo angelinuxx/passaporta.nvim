@@ -48,8 +48,8 @@ need a `keys` entry (or no lazy loading) to be available at startup.
 ### Requirements
 
 - Neovim >= 0.10
-- ssh remotes: `rsync` (>= 3.2.3 recommended) and `ssh`, locally and `rsync` on the server.
-- sftp remotes: [`lftp`](https://lftp.yar.ru/) (>= 4.9 recommended). Nothing is needed on the server but an SFTP subsystem.
+- ssh remotes: `rsync` (>= 3.2.3, for `--mkpath`) and `ssh` locally, and `rsync` >= 3.2.3 on the server too.
+- sftp remotes: [`lftp`](https://lftp.yar.ru/) (>= 4.9 recommended) and `ssh` locally (lftp connects through it). Nothing is needed on the server but an SFTP subsystem.
 
 Run `:checkhealth passaporta` to verify tools, config and passwords.
 
@@ -199,9 +199,6 @@ redacted from every output.
   `**/` misses top-level files). Path rules containing `/`, for example
   `public/storage`, are **not anchored** in lftp, unlike rsync: they also
   exclude `app/public/storage` (over-exclusion).
-- A single-file upload uses `put -O <remote dir>`, so a single-file mapping
-  whose remote basename differs from the local basename is not supported on
-  sftp (it is on ssh).
 - A directory diff on sftp whose remote path is the remote home itself (`.`,
   `~` or empty) cannot be parsed reliably (known limitation).
 

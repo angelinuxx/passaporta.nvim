@@ -73,8 +73,9 @@ function M.candidates(remotes, rel)
   return result, nil
 end
 
----Exclude patterns of `remote` relative to the directory `rel_dir`. Glob rules pass through, path rules
----are rebased (and dropped when outside or equal to the directory); directories get a trailing "/".
+---Exclude patterns of `remote` relative to the directory `rel_dir`. Floating globs (no "/", or a "**/"
+---prefix) pass through; path rules and anchored globs are rebased (and dropped when outside or equal to
+---the directory); non-glob directories get a trailing "/".
 ---@param remote passaporta.Remote
 ---@param rel_dir string project-relative directory, "" for the project root
 ---@param is_dir fun(rel: string): boolean receives the rebased rule
@@ -84,8 +85,15 @@ function M.excludes_for_dir(remote, rel_dir, is_dir)
   ---@type string[]
   local result = {}
   for _, rule in ipairs(remote.excludedPaths) do
-    if glob.is_glob(rule) then
+    local is_glob = glob.is_glob(rule)
+    if is_glob and (not rule:find("/", 1, true) or vim.startswith(rule, "**/")) then
       table.insert(result, rule)
+    elseif is_glob then
+      if dir == "" then
+        table.insert(result, rule)
+      elseif vim.startswith(rule, dir .. "/") and #rule > #dir + 1 then
+        table.insert(result, rule:sub(#dir + 2))
+      end
     else
       local bare = rule:gsub("/+$", "")
       local rebased

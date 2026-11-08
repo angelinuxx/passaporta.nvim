@@ -77,6 +77,13 @@ describe("ssh.dir", function()
       ssh.dir(remote, targs { local_path = "/l", remote_path = "/r", direction = "down" }).cmd
     )
   end)
+  it("keeps --delay-updates while dropping --del", function()
+    config.setup { rsync = { upload_params = { "-a", "--delay-updates", "--del" } } }
+    assert.are.same(
+      { "rsync", "-a", "--delay-updates", "/l/", "web@h:/r/" },
+      ssh.dir(remote, targs { local_path = "/l", remote_path = "/r" }).cmd
+    )
+  end)
   it("drops deletion flags from user params", function()
     local flags = {
       "--del",

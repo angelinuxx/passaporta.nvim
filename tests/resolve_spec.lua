@@ -147,6 +147,26 @@ describe("resolve.excludes_for_dir", function()
     assert.are.same({ "**/*.http" }, ex)
   end)
 
+  it("rebases anchored globs like path rules and passes floating globs through", function()
+    local r = build({
+      a = {
+        host = "a",
+        mappings = { { ["local"] = "", remote = "/a" } },
+        excludedPaths = { "public/*.log", "storage/**/*.log", "other/*.tmp", "*.bak", "**/*.http" },
+      },
+    })[1]
+    local no_dir = function()
+      return false
+    end
+    assert.are.same({ "*.log", "*.bak", "**/*.http" }, resolve.excludes_for_dir(r, "public", no_dir))
+    assert.are.same({ "**/*.log", "*.bak", "**/*.http" }, resolve.excludes_for_dir(r, "storage/", no_dir))
+    assert.are.same({ "*.bak", "**/*.http" }, resolve.excludes_for_dir(r, "src", no_dir))
+    assert.are.same(
+      { "public/*.log", "storage/**/*.log", "other/*.tmp", "*.bak", "**/*.http" },
+      resolve.excludes_for_dir(r, "", no_dir)
+    )
+  end)
+
   it("does not rebase siblings sharing a name prefix", function()
     local ex = resolve.excludes_for_dir(remote, "resource", function()
       return false

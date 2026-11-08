@@ -33,8 +33,10 @@ password support.
 
 Requirements:
 - Neovim >= 0.10
-- ssh remotes: `rsync` (>= 3.2.3 recommended) and `ssh`, also on the server
-- sftp remotes: `lftp` (>= 4.9 recommended)
+- ssh remotes: `rsync` (>= 3.2.3, for `--mkpath`) and `ssh`; rsync >= 3.2.3
+  is needed on the server too
+- sftp remotes: `lftp` (>= 4.9 recommended) and `ssh` (lftp connects
+  through it)
 
 Run `:checkhealth passaporta` to verify tools, config and passwords.
 
@@ -222,9 +224,6 @@ out of git. `:checkhealth passaporta` warns about it.
   directories are excluded); `**/x` is also passed as `x`. Path rules
   containing "/" (e.g. `public/storage`) are not anchored in lftp, unlike
   rsync: they also exclude `app/public/storage`.
-- A single-file upload uses `put -O <remote dir>`: a mapping whose remote
-  basename differs from the local basename is not supported on sftp (it is on
-  ssh).
 - A directory diff on sftp whose remote path is the remote home itself ("."
   , "~" or empty) cannot be parsed reliably.
 

@@ -92,7 +92,7 @@ function M.choose_remote(root, candidates, opts, cb)
   if opts.remote then
     local c = find(opts.remote)
     if not c then
-      notify.error(("%s does not cover this path"):format(opts.remote))
+      notify.error("does not cover this path", opts.remote)
       cb(nil, nil)
       return
     end
@@ -149,8 +149,23 @@ end
 ---@return passaporta.Candidate[]|nil
 local function candidates_for(t)
   local remotes, err, warnings = deployment.load(t.root)
-  if warnings and #warnings > 0 then
-    notify.warn(table.concat(warnings, "\n"))
+  local unnamed = {}
+  for _, w in ipairs(warnings or {}) do
+    local owner
+    for _, remote in ipairs(remotes or {}) do
+      if vim.startswith(w, remote.name .. ": ") then
+        owner = remote.name
+        break
+      end
+    end
+    if owner then
+      notify.warn(w:sub(#owner + 3), owner)
+    else
+      unnamed[#unnamed + 1] = w
+    end
+  end
+  if #unnamed > 0 then
+    notify.warn(table.concat(unnamed, "\n"))
   end
   if not remotes then
     notify.error(err or "invalid deployment config")
@@ -221,7 +236,8 @@ local function redacted_lines(lines, job)
   return out
 end
 
----Message for a failed run, or nil on success. Drops the cached password on authentication failures.
+---Message for a failed run, or nil on success. On authentication failures drops the cached password
+---when the remote uses one.
 ---@param result passaporta.RunResult
 ---@param job passaporta.Job
 ---@param backend table
@@ -241,6 +257,9 @@ local function failure(result, job, backend, remote, t, run_opts, what)
     return nil
   end
   if backend.is_auth_failure(table.concat(result.stderr, "\n")) then
+    if remote.password == nil then
+      return "authentication failed"
+    end
     secrets.invalidate(t.root, remote.name)
     return "authentication failed, cached password dropped"
   end
@@ -252,7 +271,7 @@ local function failure(result, job, backend, remote, t, run_opts, what)
   return msg
 end
 
----Reload the unmodified loaded buffers at or under `t.abs`; warn about modified ones.
+---Reload the unmodified loaded buffers at or under `t.abs` whose file still exists; warn about modified ones.
 ---@param t passaporta.Target
 ---@param remote passaporta.Remote
 local function reload_buffers(t, remote)
@@ -262,6 +281,7 @@ local function reload_buffers(t, remote)
       name ~= ""
       and vim.api.nvim_buf_is_loaded(buf)
       and (name == t.abs or (t.is_dir and vim.startswith(name, t.abs .. "/")))
+      and vim.uv.fs_stat(name) -- a file removed by syncdown keeps its buffer instead of becoming empty
     then
       if vim.bo[buf].modified then
         local rel = paths.normalize_local(name, t.root) or name

@@ -1,5 +1,6 @@
 local health = require "passaporta.health"
--- preload modules: the specs chdir, which breaks the relative runtimepath
+-- preload modules: a single-file `PlenaryBustedFile` run starts the child nvim with a relative
+-- runtimepath (`set rtp+=.`), which breaks once the specs chdir (`make test` passes an absolute one)
 require "passaporta.deployment"
 
 describe("passaporta.health versions", function()
@@ -95,6 +96,17 @@ describe("passaporta.health check", function()
     vim.fn.executable = orig
     assert.is_true(has("warn", "lftp"))
     assert.is_true(has("error", "beta: sftp b.example"))
+  end)
+
+  it("requires ssh for sftp remotes", function()
+    project [[return { beta = { host = "b.example", protocol = "sftp", mappings = { { remote = "/b" } } } }]]
+    local orig = vim.fn.executable
+    vim.fn.executable = function(cmd)
+      return cmd == "ssh" and 0 or orig(cmd)
+    end
+    health.check()
+    vim.fn.executable = orig
+    assert.is_true(has("error", "beta: sftp b.example (missing: ssh)"))
   end)
 
   it("reports load errors", function()

@@ -95,7 +95,7 @@ function M.file(remote, args)
   local lp, rp = strip_slashes(args.local_path), strip_slashes(args.remote_path)
   if args.direction == "up" then
     local dir = vim.fs.dirname(rp)
-    return job(remote, args, { "mkdir -pf " .. q(dir), "put -O " .. q(dir) .. " " .. q(lp) })
+    return job(remote, args, { "mkdir -pf " .. q(dir), "put " .. q(lp) .. " -o " .. q(rp) })
   end
   return job(remote, args, { "get " .. q(rp) .. " -o " .. q(lp) })
 end
@@ -310,14 +310,23 @@ function M.parse_dry_run(lines, args)
   return entries
 end
 
----Whether lftp's stderr reports an authentication failure.
+---Whether lftp's stderr reports an authentication failure. "Permission denied" counts only in ssh's
+---authentication shapes, never on an lftp "Access failed" line (a remote write error).
 ---@param stderr string
 ---@return boolean
 function M.is_auth_failure(stderr)
-  local s = stderr:lower()
-  for _, needle in ipairs { "login failed", "login incorrect", "permission denied", "authentication failed" } do
-    if s:find(needle, 1, true) then
-      return true
+  for line in vim.gsplit(stderr:lower(), "\n", { plain = true }) do
+    for _, needle in ipairs { "login failed", "login incorrect", "authentication failed" } do
+      if line:find(needle, 1, true) then
+        return true
+      end
+    end
+    if not line:find("access failed", 1, true) then
+      for _, needle in ipairs { "permission denied (", "permission denied, please try again" } do
+        if line:find(needle, 1, true) then
+          return true
+        end
+      end
     end
   end
   return false

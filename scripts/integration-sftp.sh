@@ -146,6 +146,7 @@ nvim_step syncdown "synced down" || fail "syncdown failed"
 ok "local state mirrors the server"
 
 step "4. unknown host key must fail fast"
+# The sftp:connect-program override points ssh at a temporary known_hosts, so ~/.ssh is never touched.
 : >"$TMP/empty_known_hosts"
 start="$(date +%s)"
 if nvim_step upload "uploaded" "$TMP/empty_known_hosts" >"$TMP/unknown.log" 2>&1; then
@@ -154,6 +155,7 @@ fi
 elapsed=$(($(date +%s) - start))
 [ "$elapsed" -le 30 ] || fail "unknown host key took ${elapsed}s (limit 30 s)"
 sed "s/^/     /" "$TMP/unknown.log"
+grep -qi "host key" "$TMP/unknown.log" || fail "the failure is not the host key one"
 ok "unknown host key rejected in ${elapsed}s"
 
 printf '\n%d checks passed\n' "$PASS"

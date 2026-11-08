@@ -116,6 +116,18 @@ describe("commands", function()
       assert.are.same({ sub = "upload", path = abs, bang = true }, state.get_last(tmp))
     end)
 
+    it("keeps % and brackets in the path literally", function()
+      local calls = {}
+      ops.transfer = function(op, path)
+        calls[#calls + 1] = { op, path }
+      end
+      vim.fn.mkdir(tmp .. "/sub", "p")
+      vim.fn.writefile({}, tmp .. "/sub/a1.txt")
+      commands.run { fargs = { "upload", "%x.txt" }, bang = false }
+      commands.run { fargs = { "upload", "sub/a[1].txt" }, bang = false }
+      assert.are.same({ { "upload", tmp .. "/%x.txt" }, { "upload", tmp .. "/sub/a[1].txt" } }, calls)
+    end)
+
     it("uses the current buffer without an argument", function()
       local calls = {}
       ops.transfer = function(op, path)

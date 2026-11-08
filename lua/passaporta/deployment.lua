@@ -54,11 +54,12 @@ local function normalize_remote(name, raw, errors, warnings)
       elseif m["local"] ~= nil and type(m["local"]) ~= "string" then
         fail(("mapping %d has a non-string local"):format(i))
       else
-        local remote = m.remote
-        if remote ~= "/" then
-          remote = remote:gsub("/+$", "")
+        local remote = m.remote:match "^/+$" and "/" or m.remote:gsub("/+$", "")
+        if remote == "" then
+          fail(("mapping %d has an empty remote"):format(i))
+        else
+          mappings[#mappings + 1] = { ["local"] = paths.normalize_mapping_local(m["local"]), remote = remote }
         end
-        mappings[#mappings + 1] = { ["local"] = paths.normalize_mapping_local(m["local"]), remote = remote }
       end
     end
   end
