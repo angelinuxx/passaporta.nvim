@@ -128,6 +128,10 @@ describe("sftp.file", function()
 end)
 
 describe("sftp.dir", function()
+  after_each(function()
+    config.setup()
+  end)
+
   it("builds a reverse mirror with delete, dry-run and excludes", function()
     local job = sftp.dir(
       remote_user,
@@ -160,6 +164,38 @@ describe("sftp.dir", function()
         .. ' "/home/u/proj/src" "/var/www/src"',
       lines[#lines - 1]
     )
+  end)
+  it("drops deletion flags from mirror_params", function()
+    config.setup {
+      lftp = {
+        mirror_params = {
+          "--no-perms",
+          "-e",
+          "--delete",
+          "--delete-first",
+          "--delete-excluded",
+          "--delete-f",
+          "--del",
+          "--Remove-source-files",
+          "--Remove-source-dirs",
+          "--remove-source-files",
+          "--Move",
+          "--Mo",
+          "-ve",
+          "-pe",
+          "-x",
+          "-e",
+          "-x.env",
+          "-P2e",
+          "--parallel=2",
+        },
+      },
+    }
+    local mirror = 'mirror -R%s -v --no-perms -x -e -x.env -P2e --parallel=2 "/l" "/r"'
+    local lines = script(sftp.dir(remote, targs { local_path = "/l", remote_path = "/r" }))
+    assert.are.equal(mirror:format "", lines[#lines - 1])
+    lines = script(sftp.dir(remote, targs { local_path = "/l", remote_path = "/r", delete = true }))
+    assert.are.equal(mirror:format " --delete", lines[#lines - 1])
   end)
   it("builds a plain download mirror, remote first", function()
     local job = sftp.dir(remote, targs { direction = "down" })

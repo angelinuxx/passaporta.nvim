@@ -77,6 +77,29 @@ describe("ssh.dir", function()
       ssh.dir(remote, targs { local_path = "/l", remote_path = "/r", direction = "down" }).cmd
     )
   end)
+  it("drops deletion flags from user params", function()
+    local flags = {
+      "--del",
+      "--delete",
+      "--delete-before",
+      "--delete-during",
+      "--delete-delay",
+      "--delete-after",
+      "--delete-excluded",
+      "--delete-missing-args",
+      "--remove-source-files",
+      "--remove-sent-files",
+    }
+    config.setup { rsync = { upload_params = vim.list_extend({ "-a" }, flags), download_params = flags } }
+    assert.are.same(
+      { "rsync", "-a", "/l/", "web@h:/r/" },
+      ssh.dir(remote, targs { local_path = "/l", remote_path = "/r" }).cmd
+    )
+    assert.are.same(
+      { "rsync", "--delete", "web@h:/r/", "/l/" },
+      ssh.dir(remote, targs { local_path = "/l", remote_path = "/r", direction = "down", delete = true }).cmd
+    )
+  end)
   it("adds --delete only when requested", function()
     local job = ssh.dir(remote, targs { delete = true })
     assert.are.same({ "rsync", "-rlzi", "--checksum", "--delete", "/home/u/proj/src/", "web@h:/var/www/src/" }, job.cmd)

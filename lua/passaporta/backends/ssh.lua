@@ -34,6 +34,16 @@ local function remote_spec(remote, path)
   return user .. remote.host .. ":" .. path
 end
 
+---User params without deletion flags: `--delete` is owned by the plugin (sync and diff only).
+---Covers `--del`, every `--delete*`, `--remove-source-files` and its alias `--remove-sent-files`.
+---@param params string[]
+---@return string[]
+local function without_deletion(params)
+  return vim.tbl_filter(function(p)
+    return not (vim.startswith(p, "--del") or vim.startswith(p, "--remove-s"))
+  end, params)
+end
+
 ---@param remote passaporta.Remote
 ---@return string[]
 local function base_cmd(remote)
@@ -79,7 +89,7 @@ end
 function M.dir(remote, args)
   local cmd = base_cmd(remote)
   local rsync = config.options.rsync
-  vim.list_extend(cmd, args.direction == "up" and rsync.upload_params or rsync.download_params)
+  vim.list_extend(cmd, without_deletion(args.direction == "up" and rsync.upload_params or rsync.download_params))
   if args.delete then
     cmd[#cmd + 1] = "--delete"
   end

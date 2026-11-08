@@ -100,6 +100,72 @@ function M.file(remote, args)
   return job(remote, args, { "get " .. q(rp) .. " -o " .. q(lp) })
 end
 
+---Long mirror options that delete or move files (lftp also accepts unambiguous abbreviations).
+local DELETION_OPTIONS =
+  { "delete", "delete-first", "delete-excluded", "Remove-source-files", "Remove-source-dirs", "Move" }
+
+---Short mirror options whose argument is the rest of the token (or the next token).
+local SHORT_WITH_ARG = "[NPixIXfFO]"
+
+---Scan a short-option cluster (`-e`, `-ve`, `-x.env`): whether it holds `-e` before any option that
+---takes an argument, and whether that option's argument is the next token (`-x` `RX`; `-P` has an optional one).
+---@param token string
+---@return boolean deletes
+---@return boolean next_is_arg
+local function scan_short_cluster(token)
+  local letters = token:sub(2)
+  for i = 1, #letters do
+    local c = letters:sub(i, i)
+    if c == "e" then
+      return true, false
+    elseif c:match(SHORT_WITH_ARG) then
+      return false, i == #letters and c ~= "P"
+    end
+  end
+  return false, false
+end
+
+---Whether a long option (`--delete-f`, `--Mo`) names a deleting option.
+---@param token string
+---@return boolean
+local function long_option_deletes(token)
+  local name = token:sub(3):match "^[^=]*"
+  if name == "" then
+    return false
+  end
+  if vim.startswith(name, "delete") or vim.startswith(name:lower(), "remove-source") then
+    return true
+  end
+  for _, option in ipairs(DELETION_OPTIONS) do
+    if vim.startswith(option, name) then
+      return true
+    end
+  end
+  return false
+end
+
+---User mirror params without deletion flags: `--delete` is owned by the plugin (sync and diff only).
+---Arguments of options that take one (`-x RX`) are kept untouched.
+---@param params string[]
+---@return string[]
+local function without_deletion(params)
+  local kept, next_is_arg = {}, false
+  for _, p in ipairs(params) do
+    local deletes = false
+    if next_is_arg then
+      next_is_arg = false
+    elseif vim.startswith(p, "--") then
+      deletes = long_option_deletes(p)
+    elseif p:match "^%-." then
+      deletes, next_is_arg = scan_short_cluster(p)
+    end
+    if not deletes then
+      kept[#kept + 1] = p
+    end
+  end
+  return kept
+end
+
 ---Build the lftp job that mirrors (or dry-runs) a directory.
 ---@param remote passaporta.Remote
 ---@param args passaporta.TransferArgs
@@ -116,7 +182,7 @@ function M.dir(remote, args)
     parts[#parts + 1] = "--dry-run"
   end
   parts[#parts + 1] = "-v"
-  vim.list_extend(parts, config.options.lftp.mirror_params)
+  vim.list_extend(parts, without_deletion(config.options.lftp.mirror_params))
   for _, pattern in ipairs(args.excludes) do
     -- lftp's "**/" needs at least one directory level: also emit the top-level form.
     local variants = { pattern }
