@@ -1,0 +1,16 @@
+local config = require "passaporta.config"
+describe("config", function()
+  it("exposes defaults", function()
+    assert.are.same({ ".git", ".nvim", ".idea", ".DS_Store", "*.pyc" }, config.defaults.excludes)
+    assert.are.equal(120000, config.defaults.timeout_ms)
+    assert.are.equal(60000, config.defaults.idle_timeout_ms)
+    assert.are.same({ "--no-perms" }, config.defaults.lftp.mirror_params)
+  end)
+  it("deep-merges user options without touching defaults", function()
+    config.setup { rsync = { upload_params = { "-rz" } }, timeout_ms = 5 }
+    assert.are.same({ "-rz" }, config.options.rsync.upload_params)
+    assert.are.same({ "-rlzi", "--checksum" }, config.options.rsync.download_params)
+    assert.are.equal(5, config.options.timeout_ms)
+    assert.are.equal(120000, config.defaults.timeout_ms)
+  end)
+end)
