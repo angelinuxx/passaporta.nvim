@@ -1,0 +1,11 @@
+*deleting   gone/g.txt
+*deleting   gone/
+*deleting   deleted.txt
+.d          ./
+>fcsT...... mod.txt
+>f+++++++++ new.txt
+>f+++++++++ with space.txt
+cd+++++++++ newdir/
+>f+++++++++ newdir/inner.txt
+.d          same/
+.f          same/f.txt
