@@ -1,0 +1,278 @@
+*passaporta.txt*  Upload, download, sync and diff against remote servers
+
+==============================================================================
+CONTENTS                                                    *passaporta-contents*
+
+  1. Introduction ........................ |passaporta|
+  2. Installation ........................ |passaporta-install|
+  3. Project configuration ............... |passaporta-project|
+  4. Plugin options ...................... |passaporta-config|
+  5. Commands ............................ |passaporta-commands|
+  6. Choosing the remote ................. |passaporta-remote|
+  7. Passwords ........................... |passaporta-passwords|
+  8. lftp caveats ........................ |passaporta-lftp|
+  9. Lua API ............................. |passaporta-api|
+ 10. Integrations ........................ |passaporta-integrations|
+ 11. Migrating from transfer.nvim ........ |passaporta-migration|
+ 12. Contributing ........................ |passaporta-contributing|
+
+==============================================================================
+1. INTRODUCTION                                                    *passaporta*
+
+passaporta.nvim uploads, downloads, syncs and diffs local files and
+directories against remote servers, over SSH (rsync) or SFTP (lftp).
+
+"Passaporta" is the Italian name of the Portkey from Harry Potter: an
+ordinary object that takes you to a predetermined destination. The same file
+can be sent to different places depending on which remote you pick.
+
+Inspired by transfer.nvim (https://github.com/coffebar/transfer.nvim): same
+command-driven workflow and per-project `.nvim/deployment.lua`, plus several
+remotes mapping the same path (with a picker) and an SFTP backend with
+password support.
+
+Requirements:
+- Neovim >= 0.10
+- ssh remotes: `rsync` (>= 3.2.3 recommended) and `ssh`, also on the server
+- sftp remotes: `lftp` (>= 4.9 recommended)
+
+Run `:checkhealth passaporta` to verify tools, config and passwords.
+
+==============================================================================
+2. INSTALLATION                                              *passaporta-install*
+
+With lazy.nvim: >lua
+    {
+      "angelinuxx/passaporta.nvim",
+      cmd = "Passaporta",
+      opts = {},
+    }
+<
+
+==============================================================================
+3. PROJECT CONFIGURATION                                     *passaporta-project*
+
+Each project has a `.nvim/deployment.lua` (relative to the directory Neovim
+was started in). `:Passaporta init` creates it from a template. It returns a
+table of remotes indexed by name: >lua
+
+    return {
+      staging = {
+        host = "myhost",
+        username = "web",
+        port = 22,
+        protocol = "ssh",
+        mappings = {
+          { ["local"] = ".", ["remote"] = "/var/www/staging" },
+        },
+        excludedPaths = { "vendor", "node_modules", ".env", "**/*.http" },
+      },
+      shared_hosting = {
+        host = "ftp.example.com",
+        username = "u12345",
+        protocol = "sftp",
+        password = true,
+        mappings = {
+          { ["local"] = "wp-config.php", ["remote"] = "/public_html/wp-config.php" },
+        },
+      },
+    }
+<
+Fields:
+  host            ssh alias or hostname (required)
+  username        optional
+  port            optional positive integer
+  protocol        "ssh" (default, rsync) or "sftp" (lftp)
+  password        sftp only, see |passaporta-passwords|
+  mappings        list of { ["local"] = ..., ["remote"] = ... }. `local` is
+                  relative to the project root ("." , "" and "/" mean the
+                  root); `remote` is absolute or relative to the remote
+                  home. A mapping applies to every path below its `local`.
+  excludedPaths   local paths relative to the project root, or glob patterns
+
+Remotes are always listed in sorted-name order.
+
+Glob rules in `excludedPaths` (`*.pyc`, `**/*.http`) also exclude single
+files, not only directory operations (difference from transfer.nvim). rsync
+semantics apply: a pattern without "/" matches any path component, `**`
+crosses directories, a trailing "/" matches directories only.
+
+Default excludes: the `excludes` option (`.git`, `.nvim`, `.idea`,
+`.DS_Store`, `*.pyc`) applies to every directory operation on both backends,
+before `excludedPaths`.
+
+Deletion flags: `--delete` is added by the plugin only for `syncup`,
+`syncdown` and the directory `diff`. Deletion flags in `rsync.upload_params`,
+`rsync.download_params` and `lftp.mirror_params` are dropped.
+
+==============================================================================
+4. PLUGIN OPTIONS                                            *passaporta-config*
+
+Pass them to `require("passaporta").setup(opts)`. Defaults: >lua
+
+    {
+      config_file = ".nvim/deployment.lua",
+      config_template = "<template for :Passaporta init>", -- string|lines|fn
+      excludes = { ".git", ".nvim", ".idea", ".DS_Store", "*.pyc" },
+      rsync = {
+        upload_params = { "-rlzi", "--checksum" },
+        download_params = { "-rlzi", "--checksum" },
+      },
+      lftp = {
+        settings = {},
+        mirror_params = { "--no-perms" },
+      },
+      timeout_ms = 120000,
+      idle_timeout_ms = 60000,
+      close_diff_mapping = "<leader>b",
+      notify = nil,
+    }
+<
+  config_file         project config path, relative to the project root
+  excludes            patterns excluded from every directory operation
+  rsync.*_params      extra rsync params (deletion flags are dropped)
+  lftp.settings       extra lftp `set` options, e.g.
+                      { ["net:timeout"] = 60 }
+  lftp.mirror_params  extra `mirror` params (deletion flags are dropped)
+  timeout_ms          total timeout for file operations
+  idle_timeout_ms     directory operations have no total timeout; they are
+                      killed after this long without any output
+  close_diff_mapping  mapping that closes a file diff
+  notify              vim.notify-compatible function; the title is
+                      "Passaporta"
+
+==============================================================================
+5. COMMANDS                                                *passaporta-commands*
+
+                                                                 *:Passaporta*
+All commands take an optional path; the default is the current buffer's
+file. A directory triggers the directory variant. A bang (`:Passaporta!`)
+forces the remote picker, see |passaporta-remote|.
+
+:Passaporta upload [path]
+    File: upload. Directory: merge up, copies new and changed files and
+    deletes nothing.
+:Passaporta download [path]
+    File: download and reload the buffer. Directory: merge down, deletes
+    nothing.
+:Passaporta syncup [path]
+    File: same as upload. Directory: mirror up, deletes remote extras.
+:Passaporta syncdown [path]
+    File: same as download. Directory: mirror down, deletes local extras.
+:Passaporta diff [path]
+    File: `diffsplit` against the remote file. Directory: quickfix list of
+    what a `syncup` would do: [A] new, [M] modified, [D] deleted.
+:Passaporta remote [name|clear]
+    Pick the active remote among all remotes, set it, or clear it.
+:Passaporta repeat
+    Re-run the last upload/download/syncup/syncdown with the same absolute
+    path and bang.
+:Passaporta init
+    Create `.nvim/deployment.lua` from the template and open it.
+:Passaporta forget
+    Drop the cached passwords of this project.
+
+Merge (upload, download) only adds and updates. Sync (syncup, syncdown)
+makes the destination identical to the source, deleting extras.
+
+==============================================================================
+6. CHOOSING THE REMOTE                                         *passaporta-remote*
+
+Candidates are the remotes with a mapping covering the path and no
+`excludedPaths` rule matching it.
+
+- no candidate: an error says why
+- one candidate: used directly
+- several: the active remote is used if it is among them, otherwise a
+  |vim.ui.select()| picker opens and the choice becomes the active remote
+
+The active remote is kept in memory per project root.
+`:Passaporta remote <name>` sets it, `:Passaporta remote clear` unsets it.
+
+With a bang (`:Passaporta! upload`) the active remote is ignored, the picker
+is always shown among the candidates and the active remote is not changed.
+
+==============================================================================
+7. PASSWORDS                                                *passaporta-passwords*
+
+`password` works with `protocol = "sftp"` only.
+
+  absent      lftp drives ssh, which uses keys, agent and ssh config
+  true        prompt once per session (|inputsecret()|)
+  "string"    used as is
+  function    called once per session, must return a string
+
+The password is cached in memory per (project, remote). It is dropped by
+`:Passaporta forget` and on an authentication failure. It is only ever sent
+on lftp's stdin, never in the argument list, and is redacted from all output.
+
+WARNING: a "string" password lives in `.nvim/deployment.lua`. Keep `.nvim/`
+out of git. `:checkhealth passaporta` warns about it.
+
+==============================================================================
+8. LFTP CAVEATS                                                  *passaporta-lftp*
+
+- Change detection uses size and mtime, not checksums. Add `--ignore-time`
+  to `lftp.mirror_params` if only content changed.
+- `--no-perms` is the default mirror param (shared hosts often reject chmod).
+- Host keys must already be in known_hosts: connect once interactively.
+  lftp fails fast (`net:max-retries 2`, `net:timeout 30`,
+  `sftp:auto-confirm no`).
+- Exclude translation: every pattern is passed as `p` and `p/` (so
+  directories are excluded); `**/x` is also passed as `x`. Path rules
+  containing "/" (e.g. `public/storage`) are not anchored in lftp, unlike
+  rsync: they also exclude `app/public/storage`.
+- A single-file upload uses `put -O <remote dir>`: a mapping whose remote
+  basename differs from the local basename is not supported on sftp (it is on
+  ssh).
+- A directory diff on sftp whose remote path is the remote home itself ("."
+  , "~" or empty) cannot be parsed reliably.
+
+==============================================================================
+9. LUA API                                                         *passaporta-api*
+
+>lua
+    local p = require("passaporta")
+    p.setup(opts)
+    p.upload(path?, opts?)  -- also download, syncup, syncdown, diff
+    p.set_remote(name)
+    p.pick_remote()
+    p.clear_remote()
+    p.active_remote()       -- name or nil, for the current project
+    p.repeat_last()
+    p.forget_passwords()
+<
+`opts.remote = "name"` bypasses the picker and the active remote for that
+call (the remote must cover the path). `opts.force_pick = true` is the bang.
+
+==============================================================================
+10. INTEGRATIONS                                          *passaporta-integrations*
+
+See the README for oil.nvim, snacks.nvim explorer, which-key and lualine
+snippets. For a statusline: >lua
+
+    function() return require("passaporta").active_remote() or "" end
+<
+
+==============================================================================
+11. MIGRATING FROM TRANSFER.NVIM                             *passaporta-migration*
+
+The config format is the same. Differences:
+
+- `password` needs `protocol = "sftp"` (there is no `sshpass`)
+- `upload_on_save` is ignored
+- glob rules in `excludedPaths` also exclude single files
+- `--delete` and the default excludes are no longer in the rsync params
+- several remotes can map the same path: a picker asks which one to use
+
+==============================================================================
+12. CONTRIBUTING                                          *passaporta-contributing*
+
+  make test          plenary specs
+  make integration   end-to-end sftp test (docker, lftp, ssh, nvim)
+
+`scripts/integration-sftp.sh` starts an `atmoz/sftp` container with a unique
+name and random localhost port, uses a temporary known_hosts and removes
+everything on exit.
+
+ vim:tw=78:ts=8:ft=help:norl:
