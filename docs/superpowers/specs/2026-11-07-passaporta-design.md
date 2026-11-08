@@ -407,7 +407,7 @@ lua/passaporta/backends/sftp.lua  build lftp scripts, parse dry-run output
 lua/passaporta/runner.lua      vim.system wrapper
 lua/passaporta/ops.lua         upload/download/sync/diff orchestration
 lua/passaporta/diff.lua        file diffsplit + quickfix rendering
-lua/passaporta/commands.lua    :Passaporta subcommands, completion, DirChanged handling
+lua/passaporta/commands.lua    :Passaporta subcommands, completion, init/repeat/forget
 plugin/passaporta.lua          loader: user command + autocmds with lazy requires
 lua/passaporta/health.lua
 ```
