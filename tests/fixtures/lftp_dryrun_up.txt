@@ -1,0 +1,15 @@
+Removing old file `changed.txt'
+Transferring file `changed.txt'
+get -e -O /tmp/pp-lftp/remote file:/tmp/pp-lftp/local/changed.txt
+Transferring file `new file.txt'
+get -O /tmp/pp-lftp/remote file:/tmp/pp-lftp/local/new%20file.txt
+Making directory `new dir'
+mkdir file:/tmp/pp-lftp/remote/new%20dir
+Transferring file `new dir/inner.txt'
+get -O "/tmp/pp-lftp/remote/new dir" file:/tmp/pp-lftp/local/new%20dir/inner.txt
+Transferring file `sub/nested new.txt'
+get -O /tmp/pp-lftp/remote/sub file:/tmp/pp-lftp/local/sub/nested%20new.txt
+rm -r file:/tmp/pp-lftp/remote/gone%20dir
+Removing old directory `gone dir'
+rm file:/tmp/pp-lftp/remote/gone.txt
+Removing old file `gone.txt'
