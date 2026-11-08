@@ -1,0 +1,5 @@
+return {
+  staging = {
+    host = "myhost",
+  },
+}
