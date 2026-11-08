@@ -165,7 +165,7 @@ describe("sftp.dir", function()
     local job = sftp.dir(remote, targs { excludes = { "**/*.http", "**/cache/" } })
     local lines = script(job)
     assert.are.equal(
-      'mirror -R -v --no-perms --exclude-glob "**/*.http" --exclude-glob "**/*.http/"'
+      'mirror -R -v --parallel=4 --no-perms --exclude-glob "**/*.http" --exclude-glob "**/*.http/"'
         .. ' --exclude-glob "*.http" --exclude-glob "*.http/"'
         .. ' --exclude-glob "**/cache/" --exclude-glob "cache/"'
         .. ' "/home/u/proj/src" "/var/www/src"',
@@ -207,12 +207,34 @@ describe("sftp.dir", function()
   it("builds a plain download mirror, remote first", function()
     local job = sftp.dir(remote, targs { direction = "down" })
     local lines = script(job)
-    assert.are.equal('mirror -v --no-perms "/var/www/src" "/home/u/proj/src"', lines[#lines - 1])
+    assert.are.equal('mirror -v --parallel=4 --no-perms "/var/www/src" "/home/u/proj/src"', lines[#lines - 1])
   end)
   it("keeps the root path as /", function()
     local job = sftp.dir(remote, targs { remote_path = "/" })
     local lines = script(job)
-    assert.are.equal('mirror -R -v --no-perms "/home/u/proj/src" "/"', lines[#lines - 1])
+    assert.are.equal('mirror -R -v --parallel=4 --no-perms "/home/u/proj/src" "/"', lines[#lines - 1])
+  end)
+  it("applies lftp.parallel, and disables it at 1", function()
+    config.setup { lftp = { parallel = 8 } }
+    local lines = script(sftp.dir(remote, targs { local_path = "/l", remote_path = "/r" }))
+    assert.are.equal('mirror -R -v --parallel=8 --no-perms "/l" "/r"', lines[#lines - 1])
+    config.setup { lftp = { parallel = 1 } }
+    lines = script(sftp.dir(remote, targs { local_path = "/l", remote_path = "/r" }))
+    assert.are.equal('mirror -R -v --no-perms "/l" "/r"', lines[#lines - 1])
+  end)
+  it("omits parallelism from dry runs", function()
+    local lines = script(sftp.dir(remote, targs { local_path = "/l", remote_path = "/r", dry_run = true }))
+    assert.are.equal('mirror -R --dry-run -v --no-perms "/l" "/r"', lines[#lines - 1])
+  end)
+  it("lets a parallel setting in mirror_params win", function()
+    for _, param in ipairs { "--parallel=2", "--para=2", "-P2", "-vP", "-P" } do
+      config.setup { lftp = { mirror_params = { param } } }
+      local lines = script(sftp.dir(remote, targs { local_path = "/l", remote_path = "/r" }))
+      assert.are.equal(('mirror -R -v %s "/l" "/r"'):format(param), lines[#lines - 1])
+    end
+    config.setup { lftp = { mirror_params = { "-x", "-xP", "--perms" } } }
+    local lines = script(sftp.dir(remote, targs { local_path = "/l", remote_path = "/r" }))
+    assert.are.equal('mirror -R -v --parallel=4 -x -xP --perms "/l" "/r"', lines[#lines - 1])
   end)
 end)
 

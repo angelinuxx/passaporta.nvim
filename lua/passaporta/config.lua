@@ -7,6 +7,7 @@ local M = {}
 ---@class passaporta.LftpOptions
 ---@field settings table<string, string|number|boolean> Extra `set` settings applied to every lftp session.
 ---@field mirror_params string[] Extra params for `mirror` commands.
+---@field parallel integer Files transferred in parallel by directory operations (1 disables).
 
 ---@class passaporta.Options
 ---@field config_file string Project config path, relative to the project root.
@@ -55,6 +56,7 @@ M.defaults = {
   lftp = {
     settings = {},
     mirror_params = { "--no-perms" },
+    parallel = 4,
   },
   timeout_ms = 120000,
   idle_timeout_ms = 60000,

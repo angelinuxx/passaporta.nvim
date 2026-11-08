@@ -33,6 +33,7 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
     lftp = {
       settings = {}, -- extra lftp `set` options, e.g. { ["net:timeout"] = 60 }
       mirror_params = { "--no-perms" },
+      parallel = 4, -- files transferred in parallel by directory operations (1 disables)
     },
     timeout_ms = 120000, -- total timeout for file operations
     idle_timeout_ms = 60000, -- directory operations: killed after this long without output
@@ -191,6 +192,10 @@ redacted from every output.
   `lftp.mirror_params`.
 - **`--no-perms`** is the default mirror param, since shared hosts often reject
   chmod.
+- **Parallel transfers**: directory uploads, downloads and syncs move
+  `lftp.parallel` files at once (default 4), each over its own SSH connection.
+  Lower it (or set 1) if your host limits concurrent sessions. A `--parallel`
+  or `-P` in `lftp.mirror_params` takes precedence. Diff dry runs stay sequential.
 - **Host keys** must already be in `known_hosts`: connect once interactively.
   lftp is configured to fail fast instead of asking (`net:max-retries 2`,
   `net:timeout 30`, `sftp:auto-confirm no`).

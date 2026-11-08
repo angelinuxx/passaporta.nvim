@@ -5,6 +5,7 @@ describe("config", function()
     assert.are.equal(120000, config.defaults.timeout_ms)
     assert.are.equal(60000, config.defaults.idle_timeout_ms)
     assert.are.same({ "--no-perms" }, config.defaults.lftp.mirror_params)
+    assert.are.equal(4, config.defaults.lftp.parallel)
   end)
   it("deep-merges user options without touching defaults", function()
     config.setup { rsync = { upload_params = { "-rz" } }, timeout_ms = 5 }

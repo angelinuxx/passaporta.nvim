@@ -123,6 +123,7 @@ Pass them to `require("passaporta").setup(opts)`. Defaults: >lua
       lftp = {
         settings = {},
         mirror_params = { "--no-perms" },
+        parallel = 4,
       },
       timeout_ms = 120000,
       idle_timeout_ms = 60000,
@@ -136,6 +137,9 @@ Pass them to `require("passaporta").setup(opts)`. Defaults: >lua
   lftp.settings       extra lftp `set` options, e.g.
                       { ["net:timeout"] = 60 }
   lftp.mirror_params  extra `mirror` params (deletion flags are dropped)
+  lftp.parallel       files transferred in parallel by directory operations,
+                      each over its own connection (1 disables); a
+                      `--parallel`/`-P` in `lftp.mirror_params` wins
   timeout_ms          total timeout for file operations
   idle_timeout_ms     directory operations have no total timeout; they are
                       killed after this long without any output
@@ -217,6 +221,8 @@ out of git. `:checkhealth passaporta` warns about it.
 - Change detection uses size and mtime, not checksums. Add `--ignore-time`
   to `lftp.mirror_params` if only content changed.
 - `--no-perms` is the default mirror param (shared hosts often reject chmod).
+- Directory transfers use `lftp.parallel` connections (default 4): lower it if
+  the host limits concurrent sessions. Diff dry runs stay sequential.
 - Host keys must already be in known_hosts: connect once interactively.
   lftp fails fast (`net:max-retries 2`, `net:timeout 30`,
   `sftp:auto-confirm no`).

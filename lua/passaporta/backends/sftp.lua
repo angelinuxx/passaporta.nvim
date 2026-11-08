@@ -166,6 +166,23 @@ local function without_deletion(params)
   return kept
 end
 
+---Whether the user mirror params already set the parallelism (`--parallel=N`, an unambiguous
+---abbreviation like `--para=N`, or a short cluster like `-P3`).
+---@param params string[]
+---@return boolean
+local function sets_parallel(params)
+  for _, p in ipairs(params) do
+    local name = vim.startswith(p, "--") and p:sub(3):match "^[^=]*"
+    if name and #name >= 2 and vim.startswith("parallel", name) then
+      return true
+    end
+    if not name and p:match "^%-[^%-NPixIXfFO]*P" then
+      return true
+    end
+  end
+  return false
+end
+
 ---Build the lftp job that mirrors (or dry-runs) a directory.
 ---@param remote passaporta.Remote
 ---@param args passaporta.TransferArgs
@@ -182,7 +199,13 @@ function M.dir(remote, args)
     parts[#parts + 1] = "--dry-run"
   end
   parts[#parts + 1] = "-v"
-  vim.list_extend(parts, without_deletion(config.options.lftp.mirror_params))
+  local params = without_deletion(config.options.lftp.mirror_params)
+  local parallel = config.options.lftp.parallel
+  -- A dry run transfers nothing: parallel connections would only cost extra logins.
+  if not args.dry_run and type(parallel) == "number" and parallel > 1 and not sets_parallel(params) then
+    parts[#parts + 1] = ("--parallel=%d"):format(math.floor(parallel))
+  end
+  vim.list_extend(parts, params)
   for _, pattern in ipairs(args.excludes) do
     -- lftp's "**/" needs at least one directory level: also emit the top-level form.
     local variants = { pattern }
