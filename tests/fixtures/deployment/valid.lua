@@ -9,6 +9,7 @@ return {
   },
   production = {
     host = "myhost",
+    username = "u12345",
     protocol = "sftp",
     password = true,
     mappings = {

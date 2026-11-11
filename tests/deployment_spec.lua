@@ -121,6 +121,12 @@ describe("deployment.normalize", function()
     )
   end)
 
+  it("rejects password without username", function()
+    local msg = "a: password requires username"
+    assert.are.same({ msg }, errors_of { protocol = "sftp", password = true })
+    assert.are.same({ msg }, errors_of { protocol = "sftp", password = "s", username = "" })
+  end)
+
   it("rejects an invalid port", function()
     local msg = "a: port must be a positive integer"
     assert.are.same({ msg }, errors_of { port = 0 })

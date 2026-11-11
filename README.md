@@ -97,9 +97,9 @@ return {
 | field | meaning |
 |---|---|
 | `host` | ssh alias or hostname (required) |
-| `username` | optional |
+| `username` | optional, required with `password` |
 | `port` | optional positive integer |
-| `protocol` | `"ssh"` (default, rsync) or `"sftp"` (lftp) |
+| `protocol` | `"ssh"` (default, rsync, key auth only) or `"sftp"` (lftp, key or password auth) |
 | `password` | sftp only, see [Passwords](#passwords) |
 | `mappings` | list of `{ ["local"] = ..., ["remote"] = ... }`. `local` is relative to the project root (`.`, `""` and `/` mean the root); `remote` is absolute or relative to the remote home. A mapping applies to every path below its `local`. |
 | `excludedPaths` | local paths relative to the project root, or glob patterns |
@@ -167,7 +167,19 @@ one-off push elsewhere.
 
 ### Passwords
 
-`password` works with `protocol = "sftp"` only.
+The `ssh` protocol runs rsync and authenticates with keys only (keys, agent,
+ssh config): there is no `sshpass`. If a server only accepts password logins,
+use `protocol = "sftp"` and set `password`, even when it is a regular SSH
+server: sftp still connects through ssh and only needs the SFTP subsystem on
+the server.
+
+- `password` on a remote without `protocol = "sftp"` is rejected.
+- `password` requires `username`: lftp receives the password only together
+  with a user.
+- Only a plain password login is supported, not 2FA or other interactive
+  prompts.
+- sftp transfers behave differently from rsync in a few ways, see
+  [lftp caveats](#lftp-caveats).
 
 | value | behaviour |
 |---|---|
@@ -345,8 +357,8 @@ require("lualine").setup {
 The config format is the same (`host`, `username`, `mappings`, `excludedPaths`).
 Differences:
 
-- `password` needs `protocol = "sftp"`; there is no `sshpass`. A remote with
-  `password` and no sftp protocol is rejected.
+- `password` needs `protocol = "sftp"` and `username`; there is no `sshpass`.
+  A remote with `password` and no sftp protocol, or no `username`, is rejected.
 - `upload_on_save` is not supported and is ignored (`:checkhealth passaporta` mentions it).
 - Glob rules in `excludedPaths` now also exclude single files.
 - `--delete` and the default excludes are no longer in the rsync params: see

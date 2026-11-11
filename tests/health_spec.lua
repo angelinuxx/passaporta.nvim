@@ -72,7 +72,7 @@ describe("passaporta.health check", function()
     project [[return {
       alpha = { host = "a.example", mappings = { { ["local"] = ".", remote = "/a" } } },
       beta = {
-        host = "b.example", protocol = "sftp", password = "hunter2", upload_on_save = true,
+        host = "b.example", username = "u", protocol = "sftp", password = "hunter2", upload_on_save = true,
         mappings = { { ["local"] = ".", remote = "/b" } },
       },
     }]]

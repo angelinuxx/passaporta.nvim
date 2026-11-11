@@ -82,9 +82,10 @@ table of remotes indexed by name: >lua
 <
 Fields:
   host            ssh alias or hostname (required)
-  username        optional
+  username        optional, required with `password`
   port            optional positive integer
-  protocol        "ssh" (default, rsync) or "sftp" (lftp)
+  protocol        "ssh" (default, rsync, key auth only) or "sftp" (lftp, key
+                  or password auth)
   password        sftp only, see |passaporta-passwords|
   mappings        list of { ["local"] = ..., ["remote"] = ... }. `local` is
                   relative to the project root ("." , "" and "/" mean the
@@ -201,7 +202,19 @@ is always shown among the candidates and the active remote is not changed.
 ==============================================================================
 7. PASSWORDS                                                *passaporta-passwords*
 
-`password` works with `protocol = "sftp"` only.
+The `ssh` protocol runs rsync and authenticates with keys only (keys, agent,
+ssh config): there is no `sshpass`. If a server only accepts password logins,
+use `protocol = "sftp"` and set `password`, even when it is a regular SSH
+server: sftp still connects through ssh and only needs the SFTP subsystem on
+the server.
+
+- `password` on a remote without `protocol = "sftp"` is rejected.
+- `password` requires `username`: lftp receives the password only together
+  with a user.
+- Only a plain password login is supported, not 2FA or other interactive
+  prompts.
+- sftp transfers behave differently from rsync in a few ways, see
+  |passaporta-lftp|.
 
   absent      lftp drives ssh, which uses keys, agent and ssh config
   true        prompt once per session (|inputsecret()|)
@@ -264,7 +277,7 @@ snippets. For a statusline: >lua
 
 The config format is the same. Differences:
 
-- `password` needs `protocol = "sftp"` (there is no `sshpass`)
+- `password` needs `protocol = "sftp"` and `username` (there is no `sshpass`)
 - `upload_on_save` is ignored
 - glob rules in `excludedPaths` also exclude single files
 - `--delete` and the default excludes are no longer in the rsync params

@@ -74,6 +74,9 @@ local function normalize_remote(name, raw, errors, warnings)
       fail "password auth is only supported with protocol = 'sftp'"
     elseif raw.password ~= true and type(raw.password) ~= "string" and type(raw.password) ~= "function" then
       fail "password must be true, a string or a function"
+    elseif type(raw.username) ~= "string" or raw.username == "" then
+      -- lftp only receives the password together with a user (`open -u user,password`).
+      fail "password requires username"
     end
   end
 
