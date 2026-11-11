@@ -230,19 +230,37 @@ p.forget_passwords()
 
 ## Integrations
 
+Passaporta has no code specific to other plugins: the snippets below are
+examples built on the [Lua API](#lua-api). Every function of the API can be
+wired the same way, so pick the operations and the keys that fit your workflow.
+
+Called without a path, the API works on the file of the current buffer. In a
+file explorer the current buffer is not a file, so the snippets pass the path
+of the selected entry, which can be a file or a directory.
+
+The examples use the same keys everywhere: `<leader>Pu` upload, `<leader>Pd`
+download, `<leader>PD` diff.
+
 ### oil.nvim
 
+Keymaps that exist only in oil buffers and act on the entry under the cursor.
+
 ```lua
-{
+local function on_entry(action)
+  return function()
+    local oil = require "oil"
+    local entry = oil.get_cursor_entry()
+    if entry then require("passaporta")[action](oil.get_current_dir() .. entry.name) end
+  end
+end
+
+return {
   "stevearc/oil.nvim",
   opts = {
     keymaps = {
-      ["<leader>pu"] = { desc = "Passaporta upload", callback = function()
-        require("passaporta").upload(require("oil").get_current_dir() .. require("oil").get_cursor_entry().name)
-      end },
-      ["<leader>pd"] = { desc = "Passaporta diff", callback = function()
-        require("passaporta").diff(require("oil").get_current_dir() .. require("oil").get_cursor_entry().name)
-      end },
+      ["<leader>Pu"] = { desc = "Passaporta upload", callback = on_entry "upload" },
+      ["<leader>Pd"] = { desc = "Passaporta download", callback = on_entry "download" },
+      ["<leader>PD"] = { desc = "Passaporta diff", callback = on_entry "diff" },
     },
   },
 }
@@ -250,19 +268,36 @@ p.forget_passwords()
 
 ### snacks.nvim explorer
 
+Custom explorer actions that receive the selected item, bound to keys in the
+explorer list.
+
 ```lua
-{
+local function on_item(action)
+  return function(_, item)
+    if item then require("passaporta")[action](item.file) end
+  end
+end
+
+return {
   "folke/snacks.nvim",
   opts = {
     picker = {
       sources = {
         explorer = {
           actions = {
-            passaporta_upload = function(_, item)
-              if item then require("passaporta").upload(item.file) end
-            end,
+            passaporta_upload = on_item "upload",
+            passaporta_download = on_item "download",
+            passaporta_diff = on_item "diff",
           },
-          win = { list = { keys = { ["<leader>pu"] = "passaporta_upload" } } },
+          win = {
+            list = {
+              keys = {
+                ["<leader>Pu"] = "passaporta_upload",
+                ["<leader>Pd"] = "passaporta_download",
+                ["<leader>PD"] = "passaporta_diff",
+              },
+            },
+          },
         },
       },
     },
@@ -272,19 +307,25 @@ p.forget_passwords()
 
 ### which-key
 
+Global keymaps that act on the file of the current buffer. `<leader>PU` always
+opens the remote picker, like the bang of the command.
+
 ```lua
 require("which-key").add {
-  { "<leader>p", group = "Passaporta" },
-  { "<leader>pu", function() require("passaporta").upload() end, desc = "Upload" },
-  { "<leader>pU", function() require("passaporta").upload(nil, { force_pick = true }) end, desc = "Upload to..." },
-  { "<leader>pd", function() require("passaporta").download() end, desc = "Download" },
-  { "<leader>pf", function() require("passaporta").diff() end, desc = "Diff" },
-  { "<leader>pr", function() require("passaporta").pick_remote() end, desc = "Pick remote" },
-  { "<leader>p.", function() require("passaporta").repeat_last() end, desc = "Repeat" },
+  { "<leader>P", group = "Passaporta" },
+  { "<leader>Pu", function() require("passaporta").upload() end, desc = "Upload" },
+  { "<leader>PU", function() require("passaporta").upload(nil, { force_pick = true }) end, desc = "Upload to..." },
+  { "<leader>Pd", function() require("passaporta").download() end, desc = "Download" },
+  { "<leader>PD", function() require("passaporta").diff() end, desc = "Diff" },
+  { "<leader>Pr", function() require("passaporta").pick_remote() end, desc = "Pick remote" },
+  { "<leader>P.", function() require("passaporta").repeat_last() end, desc = "Repeat" },
 }
 ```
 
 ### lualine
+
+Shows the active remote of the current working directory; the component is
+hidden when no remote is active.
 
 ```lua
 require("lualine").setup {
