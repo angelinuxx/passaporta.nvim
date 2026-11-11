@@ -285,5 +285,45 @@ describe("commands", function()
       api.set_remote "nope"
       assert.is_nil(api.active_remote())
     end)
+
+    describe("active_remote without an explicit choice", function()
+      local ONE = 'return { solo = { host = "h", mappings = { { ["local"] = ".", remote = "/s" } } } }'
+
+      local function write_config(text)
+        vim.fn.writefile(vim.split(text, "\n"), tmp .. "/.nvim/deployment.lua")
+      end
+
+      it("is nil with several remotes", function()
+        assert.is_nil(api.active_remote())
+      end)
+
+      it("falls back to the only configured remote", function()
+        write_config(ONE)
+        assert.are.equal("solo", api.active_remote())
+        api.clear_remote()
+        assert.are.equal("solo", api.active_remote())
+      end)
+
+      it("prefers the explicit choice", function()
+        api.set_remote "beta"
+        assert.are.equal("beta", api.active_remote())
+      end)
+
+      it("is nil without a config or with an invalid one", function()
+        vim.fn.delete(tmp .. "/.nvim/deployment.lua")
+        assert.is_nil(api.active_remote())
+        write_config "return { broken = { host = 5 } }"
+        assert.is_nil(api.active_remote())
+      end)
+
+      it("follows changes of the config file", function()
+        write_config(ONE)
+        assert.are.equal("solo", api.active_remote())
+        write_config(ONE:gsub("solo", "renamed"))
+        assert.are.equal("renamed", api.active_remote())
+        write_config(CONFIG)
+        assert.is_nil(api.active_remote())
+      end)
+    end)
   end)
 end)

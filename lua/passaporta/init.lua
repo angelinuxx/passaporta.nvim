@@ -42,9 +42,20 @@ function M.clear_remote()
   require("passaporta.commands").clear_remote()
 end
 
+---Remote the next operation of the current project goes to: the one chosen explicitly, or the only
+---configured remote. Nil when several remotes are configured and none is chosen.
 ---@return string|nil
 function M.active_remote()
-  return require("passaporta.state").get_active(vim.uv.cwd() or "")
+  local root = vim.uv.cwd() or ""
+  local active = require("passaporta.state").get_active(root)
+  if active then
+    return active
+  end
+  local names = require("passaporta.deployment").remote_names(root)
+  if names and #names == 1 then
+    return names[1]
+  end
+  return nil
 end
 
 function M.repeat_last()

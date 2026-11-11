@@ -154,4 +154,31 @@ function M.load(root)
   return remotes, nil, warnings
 end
 
+---@type table<string, { stamp: string, names: string[]|nil }> config path -> names read at `stamp`
+local names_cache = {}
+
+--- Remote names of `<root>/<config_file>` in sorted order, nil when the config is missing or invalid.
+--- The file is only read again when its mtime or size change, so this is cheap enough for a statusline.
+---@param root string
+---@return string[]|nil
+function M.remote_names(root)
+  local path = root .. "/" .. require("passaporta.config").options.config_file
+  local stat = vim.uv.fs_stat(path)
+  if not stat then
+    names_cache[path] = nil
+    return nil
+  end
+  local stamp = ("%d.%d:%d"):format(stat.mtime.sec, stat.mtime.nsec, stat.size)
+  local cached = names_cache[path]
+  if cached and cached.stamp == stamp then
+    return cached.names
+  end
+  local remotes = M.load(root)
+  local names = remotes and vim.tbl_map(function(remote)
+    return remote.name
+  end, remotes) or nil
+  names_cache[path] = { stamp = stamp, names = names }
+  return names
+end
+
 return M

@@ -227,3 +227,49 @@ describe("deployment.load", function()
     vim.fn.delete(dir, "rf")
   end)
 end)
+
+describe("deployment.remote_names", function()
+  local tmp
+
+  before_each(function()
+    config.setup {}
+    tmp = vim.fn.resolve(vim.fn.tempname())
+    vim.fn.mkdir(tmp .. "/.nvim", "p")
+  end)
+
+  after_each(function()
+    vim.fn.delete(tmp, "rf")
+  end)
+
+  local function write_config(text)
+    vim.fn.writefile({ text }, tmp .. "/.nvim/deployment.lua")
+  end
+
+  it("lists the names in sorted order", function()
+    write_config 'local m = { { remote = "/x" } } return { b = { host = "h", mappings = m }, a = { host = "h", mappings = m } }'
+    assert.are.same({ "a", "b" }, deployment.remote_names(tmp))
+  end)
+
+  it("is nil for a missing or invalid config", function()
+    assert.is_nil(deployment.remote_names(tmp))
+    write_config "return { a = { host = 5 } }"
+    assert.is_nil(deployment.remote_names(tmp))
+  end)
+
+  it("reads the file again only when it changes", function()
+    write_config 'return { a = { host = "h", mappings = { { remote = "/x" } } } }'
+    assert.are.same({ "a" }, deployment.remote_names(tmp))
+    local loads = 0
+    local orig = deployment.load
+    deployment.load = function(...)
+      loads = loads + 1
+      return orig(...)
+    end
+    assert.are.same({ "a" }, deployment.remote_names(tmp))
+    assert.are.equal(0, loads)
+    write_config 'return { renamed = { host = "h", mappings = { { remote = "/x" } } } }'
+    assert.are.same({ "renamed" }, deployment.remote_names(tmp))
+    assert.are.equal(1, loads)
+    deployment.load = orig
+  end)
+end)

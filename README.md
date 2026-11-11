@@ -230,7 +230,7 @@ p.upload(path?, opts?)   -- also download, syncup, syncdown, diff
 p.set_remote(name)
 p.pick_remote()
 p.clear_remote()
-p.active_remote()        -- name or nil, for the current project
+p.active_remote()        -- chosen remote, or the only configured one; nil otherwise
 p.repeat_last()
 p.forget_passwords()
 ```
@@ -336,8 +336,9 @@ require("which-key").add {
 
 ### lualine
 
-Shows the active remote of the current working directory; the component is
-hidden when no remote is active.
+Shows the remote of the current working directory: the one you chose, or the
+only one configured. The component is hidden when several remotes are
+configured and none is chosen.
 
 ```lua
 require("lualine").setup {

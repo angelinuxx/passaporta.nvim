@@ -256,7 +256,7 @@ out of git. `:checkhealth passaporta` warns about it.
     p.set_remote(name)
     p.pick_remote()
     p.clear_remote()
-    p.active_remote()       -- name or nil, for the current project
+    p.active_remote()       -- chosen remote, or the only configured one; else nil
     p.repeat_last()
     p.forget_passwords()
 <
